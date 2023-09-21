@@ -336,19 +336,23 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
         //관절 포인트
         private String detect_wanted_skeletonPoint(Skeleton skeleton)
         {
-            Joint headJoint = skeleton.Joints[JointType.Head];
-            Joint spineJoint = skeleton.Joints[JointType.Spine];
-            Joint shoulderCenterJoint = skeleton.Joints[JointType.ShoulderCenter];
-            Joint shoulderRightJoint = skeleton.Joints[JointType.ShoulderRight];
-            Joint ElbowRightJoint = skeleton.Joints[JointType.ElbowRight];
-            Joint wristRightJoint = skeleton.Joints[JointType.WristRight];
+            if (skeleton == null) return "-inf";
+            else { 
+            Joint headJoint = skeleton.Joints[JointType.Head]; //머리
+            Joint spineJoint = skeleton.Joints[JointType.Spine]; //척추 
+            Joint shoulderCenterJoint = skeleton.Joints[JointType.ShoulderCenter];//어깨 중앙
+            Joint shoulderRightJoint = skeleton.Joints[JointType.ShoulderRight]; // 오른어깨
+            Joint ElbowRightJoint = skeleton.Joints[JointType.ElbowRight]; //오른팔꿈치
+            Joint wristRightJoint = skeleton.Joints[JointType.WristRight]; // 오른 손목
+            Joint handRightJoint = skeleton.Joints[JointType.HandRight]; // 오른손
             
-            String rightAngle =  third(spineJoint.Position.X, spineJoint.Position.Y, shoulderRightJoint.Position.X, shoulderRightJoint.Position.Y, wristRightJoint.Position.X, wristRightJoint.Position.Y);
+            String rightAngle =  third(spineJoint.Position.X, spineJoint.Position.Y, shoulderCenterJoint.Position.X, shoulderCenterJoint.Position.Y, handRightJoint.Position.X, handRightJoint.Position.Y);
            
             // 관절 포인트 얻기
             String skeletonPoint = $"{headJoint.Position.X},{headJoint.Position.Y},{spineJoint.Position.X},{spineJoint.Position.Y},{shoulderCenterJoint.Position.X},{shoulderCenterJoint.Position.Y},{shoulderRightJoint.Position.X},{shoulderRightJoint.Position.Y},{ElbowRightJoint.Position.X},{ElbowRightJoint.Position.Y},{wristRightJoint.Position.X},{wristRightJoint.Position.Y},{rightAngle}";
 
             return skeletonPoint;
+            }
         }
 
         // 백터 좌표 사이에 각 구하는 함수
@@ -360,18 +364,48 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
             Point2D C = new Point2D(wristRightX, wristRightY);
 
 
-            // O에서 A와 B까지의 벡터
-            Vector2D ab = new Vector2D(A.X - B.X, A.Y - B.Y);
-            Vector2D bc = new Vector2D(B.X - C.X, B.Y - C.Y);
+            // 직선 AB와 BC의 방정식을 구하기
+            LineEquation lineAB = CalculateLineEquation(A, B);
+            LineEquation lineBC = CalculateLineEquation(B, C);
 
-            // 두 벡터 사이의 각도 계산
-            double angleRadians = Math.Acos(ab.Dot(bc) / (ab.Length * bc.Length));
-            double angleDegrees = angleRadians * (180.0 / Math.PI);
-            double realAngle = angleDegrees - 8.287614;
+            // 두 직선 사이의 각도 계산
+            double angle = CalculateAngleBetweenLines(lineAB.Slope, lineBC.Slope);
+                
+            
 
-            return realAngle.ToString();
+            return angle.ToString();
+        }
+        static LineEquation CalculateLineEquation(Point2D pointA, Point2D pointB)
+        {
+            double deltaX = pointB.X - pointA.X;
+            double deltaY = pointB.Y - pointA.Y;
+
+            double slope = deltaY / deltaX;
+            double intercept = pointA.Y - slope * pointA.X;
+
+            return new LineEquation(slope, intercept);
         }
 
+        static double CalculateAngleBetweenLines(double slope1, double slope2)
+        {
+
+            // 두 기울기의 아크탄젠트를 사용하여 각도 계산
+            double angleRadians = Math.Atan(Math.Abs((slope2 - slope1) / (1 + (slope1 * slope2))));
+            double angleDegrees = angleRadians * (180.0 / Math.PI);
+
+            return angleDegrees;
+        }
+        class LineEquation
+        {
+            public double Slope { get; }
+            public double Intercept { get; }
+
+            public LineEquation(double slope, double intercept)
+            {
+                Slope = slope;
+                Intercept = intercept;
+            }
+        }
         /// <summary>
         /// Maps a SkeletonPoint to lie within our render space and converts to Point
         /// </summary>
