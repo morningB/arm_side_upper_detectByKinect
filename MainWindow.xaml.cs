@@ -14,6 +14,8 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
     using System;
     using System.Text;
     using System.Windows.Media.Media3D;
+    using System.Windows.Forms.DataVisualization.Charting;
+    using System.Collections.Generic;
 
 
 
@@ -93,7 +95,13 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
         /// Drawing image that we will display
         /// </summary>
         private DrawingImage imageSource;
-
+        
+        /// <summary>
+        /// 누적값을 구하기 위한 변수 추가
+        /// </summary>
+        private int frameCount = 0;
+        private double totalAngle = 0.0;
+        private double averageAngle = 0.0;
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
         /// </summary>
@@ -245,7 +253,9 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
                         if (skel.TrackingState == SkeletonTrackingState.Tracked)
                         {
                             this.DrawBonesAndJoints(skel, dc);
-                           
+
+                            // 누적값
+                            
                         }
                         else if (skel.TrackingState == SkeletonTrackingState.PositionOnly)
                         {
@@ -278,7 +288,7 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
             this.DrawBone(skeleton, drawingContext, JointType.ShoulderCenter, JointType.ShoulderRight);
             this.DrawBone(skeleton, drawingContext, JointType.ShoulderCenter, JointType.Spine);
             this.DrawBone(skeleton, drawingContext, JointType.Spine, JointType.HipCenter);
-               this.DrawBone(skeleton, drawingContext, JointType.HipCenter, JointType.HipLeft);
+            this.DrawBone(skeleton, drawingContext, JointType.HipCenter, JointType.HipLeft);
             this.DrawBone(skeleton, drawingContext, JointType.HipCenter, JointType.HipRight);
 
             // Left Arm
@@ -294,14 +304,14 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
             
 
                      // Left Leg
-                      this.DrawBone(skeleton, drawingContext, JointType.HipLeft, JointType.KneeLeft);
-                      this.DrawBone(skeleton, drawingContext, JointType.KneeLeft, JointType.AnkleLeft);
-                      this.DrawBone(skeleton, drawingContext, JointType.AnkleLeft, JointType.FootLeft);
+            this.DrawBone(skeleton, drawingContext, JointType.HipLeft, JointType.KneeLeft);
+            this.DrawBone(skeleton, drawingContext, JointType.KneeLeft, JointType.AnkleLeft);
+            this.DrawBone(skeleton, drawingContext, JointType.AnkleLeft, JointType.FootLeft);
 
                       // Right Leg
-                      this.DrawBone(skeleton, drawingContext, JointType.HipRight, JointType.KneeRight);
-                      this.DrawBone(skeleton, drawingContext, JointType.KneeRight, JointType.AnkleRight);
-                      this.DrawBone(skeleton, drawingContext, JointType.AnkleRight, JointType.FootRight);
+            this.DrawBone(skeleton, drawingContext, JointType.HipRight, JointType.KneeRight);
+            this.DrawBone(skeleton, drawingContext, JointType.KneeRight, JointType.AnkleRight);
+            this.DrawBone(skeleton, drawingContext, JointType.AnkleRight, JointType.FootRight);
 
             
             
@@ -329,8 +339,22 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
                 }
                
             }
+            double currentAngle = Convert.ToDouble(detect_wanted_skeletonPoint(skeleton));
+            this.totalAngle += currentAngle;
+            this.frameCount++;
+
+            // 평균 계산
+            if (this.frameCount == 300)  // 원하는 프레임 수에 도달하면 평균 계산
+            {
+                averageAngle = this.totalAngle / this.frameCount;
+                // 여기에서 평균값을 파일이나 다른 위치에 저장하거나 사용할 수 있습니다
+                // 초기화
+                this.totalAngle = 0.0;
+                this.frameCount = 0;
+                
+            }
             // 스켈레톤 형식
-            fileWriter.WriteLine(detect_wanted_skeletonPoint(skeleton));
+            fileWriter.WriteLine(averageAngle);
   
         }
         //관절 포인트
@@ -345,11 +369,12 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
             Joint ElbowRightJoint = skeleton.Joints[JointType.ElbowRight]; //오른팔꿈치
             Joint wristRightJoint = skeleton.Joints[JointType.WristRight]; // 오른 손목
             Joint handRightJoint = skeleton.Joints[JointType.HandRight]; // 오른손
+                Joint ad = skeleton.Joints[JointType.AnkleRight]; // 오른 발목
             
-            String rightAngle =  third(spineJoint.Position.X, spineJoint.Position.Y, shoulderCenterJoint.Position.X, shoulderCenterJoint.Position.Y, handRightJoint.Position.X, handRightJoint.Position.Y);
+            String rightAngle =  third(ad.Position.X, ad.Position.Y, shoulderRightJoint.Position.X, shoulderRightJoint.Position.Y, handRightJoint.Position.X, handRightJoint.Position.Y);
            
             // 관절 포인트 얻기
-            String skeletonPoint = $"{headJoint.Position.X},{headJoint.Position.Y},{spineJoint.Position.X},{spineJoint.Position.Y},{shoulderCenterJoint.Position.X},{shoulderCenterJoint.Position.Y},{shoulderRightJoint.Position.X},{shoulderRightJoint.Position.Y},{ElbowRightJoint.Position.X},{ElbowRightJoint.Position.Y},{wristRightJoint.Position.X},{wristRightJoint.Position.Y},{rightAngle}";
+            String skeletonPoint = $"{rightAngle}";
 
             return skeletonPoint;
             }
@@ -393,6 +418,11 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
             double angleRadians = Math.Atan(Math.Abs((slope2 - slope1) / (1 + (slope1 * slope2))));
             double angleDegrees = angleRadians * (180.0 / Math.PI);
 
+            if ((slope1 > 0 && slope2 < 0) || (slope1 < 0 && slope2 > 0))
+            {
+                angleDegrees = 180.0 - angleDegrees;
+            }
+
             return angleDegrees;
         }
         class LineEquation
@@ -406,6 +436,9 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
                 Intercept = intercept;
             }
         }
+     
+
+
         /// <summary>
         /// Maps a SkeletonPoint to lie within our render space and converts to Point
         /// </summary>
@@ -438,7 +471,20 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
 
             return $"{depthPoint.Y}";
         }
+       
+     
+   
+        public class DataPoint
+        {
+            public double X { get; set; }
+            public double Y { get; set; }
 
+            public DataPoint(double x, double y)
+            {
+                X = x;
+                Y = y;
+            }
+        }
 
         /// <summary>
         /// Draws a bone line between two joints
